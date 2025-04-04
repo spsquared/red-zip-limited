@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "red-zip",
     "public": "dist",
     "ignore": [
       "firebase.json",
