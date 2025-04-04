@@ -310,7 +310,7 @@ document.addEventListener('mouseup', (e) => {
 document.addEventListener('mousemove', (e) => {
     onMouseMove(e);
 });
-document.addEventListener('touchstart', (e) => {
+document.addEventListener('touchstart', () => {
     inputMouse.touchActive = true;
 });
 document.addEventListener('touchend', () => {
