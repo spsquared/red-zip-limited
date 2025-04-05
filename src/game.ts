@@ -8,17 +8,17 @@ const resolution = 800;
 canvas.width = resolution;
 canvas.height = resolution;
 
-export const grid: number[][] = [];
-export const g = {
+const grid: number[][] = [];
+const g = {
     w: 20,
     h: 20
 };
-export const c = {
+const c = {
     x: 0,
     y: 0,
     s: 1
 };
-export function setGridSize(w: number, h: number): void {
+function setGridSize(w: number, h: number): void {
     g.w = w;
     g.h = h;
     grid.length = 0;
@@ -26,8 +26,8 @@ export function setGridSize(w: number, h: number): void {
     c.s = resolution / Math.max(g.w, g.h);
     c.x = (resolution - c.s * g.w) / 2 / c.s;
     c.y = (resolution - c.s * g.h) / 2 / c.s;
+    queueDraw();
 }
-setGridSize(10, 8);
 
 const game: {
     solution: Vec2d[]
@@ -39,6 +39,9 @@ const game: {
     pathEndNum: number
     undoStack: Vec2d[]
     redoStack: Vec2d[]
+    showSolutionIndex: number,
+    showingSolution: boolean,
+    showSolutionStart: number
 } = {
     solution: [],
     numbers: [],
@@ -48,18 +51,21 @@ const game: {
     pathCurrNum: 0,
     pathEndNum: 0,
     undoStack: [],
-    redoStack: []
+    redoStack: [],
+    showSolutionIndex: 0,
+    showingSolution: false,
+    showSolutionStart: 0
 };
 
-export async function generateGame(): Promise<void> {
-    setGridSize(g.w, g.h);
-    game.solution = await hamGen(g.w, g.h);
-    // console.log(game.solution)
+export async function generateGame(w: number, h: number): Promise<void> {
+    game.showingSolution = false;
+    game.solution = await hamGen(w, h);
+    setGridSize(w, h);
     const first = game.solution[0];
     grid[first.y][first.x] = 1;
     let j = 2;
     for (let i = 1, last = 0; i < game.solution.length - 1; i++) {
-        if (Math.random() < 0.1 || i - last > 10) {
+        if ((Math.random() < 0.05 || i - last > 10)) {
             const pos = game.solution[i];
             grid[pos.y][pos.x] = j++;
             last = i;
@@ -76,6 +82,16 @@ export async function generateGame(): Promise<void> {
     game.redoStack = [];
     queueDraw();
 }
+export function showSolution(): void {
+    if (game.showingSolution) {
+        // skip to end
+        game.showSolutionStart = -Infinity;
+    } else {
+        game.showSolutionIndex = 0;
+        game.showSolutionStart = performance.now();
+        game.showingSolution = true;
+    }
+}
 
 let drawQueued = false;
 export function queueDraw(): void {
@@ -83,13 +99,16 @@ export function queueDraw(): void {
 };
 function updateFrame(): void {
     // lerp animated head to real head
-    if (game.path.length > 0) {
+    const path = game.showingSolution ? game.solution.slice(0, game.showSolutionIndex) : game.path;
+    if (path.length > 0) {
         const t = 0.4;
-        const head = game.path[game.path.length - 1];
+        const head = path[path.length - 1];
         game.pathHead = game.pathHead.mult(1 - t).add(head.mult(t));
         if (game.pathHead.sub(head).magnitude() < 0.01) game.pathHead = head;
         else queueDraw();
     }
+    // show solution by time
+    if (game.showingSolution) game.showSolutionIndex = Math.min(game.solution.length, Math.floor((performance.now() - game.showSolutionStart) / 100));
 }
 function draw(): void {
     drawQueued = false;
@@ -104,7 +123,8 @@ function draw(): void {
     ctx.fillStyle = '#FFF';
     ctx.fillRect(0, 0, g.w, g.h);
     // path changes background color of grid
-    drawPath('#0F03', 1, game.path, 'miter', 'square');
+    const path = game.showingSolution ? game.solution.slice(0, game.showSolutionIndex) : game.path;
+    drawPath('#0F03', 1, path, 'miter', 'square');
     // grid lines
     ctx.strokeStyle = '#AAA';
     ctx.lineWidth = 0.04;
@@ -120,22 +140,23 @@ function draw(): void {
         ctx.lineTo(g.w, i);
     }
     ctx.stroke();
-    // path
-    if (game.path.length > 1) {
+    // path (+ solution path)
+    const pathColor = game.showingSolution ? '#0D0C' : '#F55C';
+    if (path.length > 1) {
         // real path head isn't drawn if it's ahead of the animated head
         // need directions, so 2 spots are needed
-        const a = game.path[game.path.length - 1], b = game.path[game.path.length - 2];
+        const a = path[path.length - 1], b = path[path.length - 2];
         const offset = b.sub(a).dot(a.sub(game.pathHead)) < 0 ? 1 : 0;
-        drawPath('#DAFC', 0.4, [...game.path.slice(0, game.path.length - offset), game.pathHead]);
-    } else if (game.path.length > 0) {
+        drawPath(pathColor, 0.4, [...path.slice(0, path.length - offset), game.pathHead]);
+    } else if (path.length > 0) {
         // edge case moment
-        drawPath('#DAFC', 0.4, [game.path[0], game.pathHead]);
+        drawPath(pathColor, 0.4, [path[0], game.pathHead]);
     }
     // trnaslate to center onto the grid cells
     ctx.save();
     ctx.translate(0.5, 0.5);
     // path head
-    ctx.strokeStyle = '#D7F';
+    ctx.strokeStyle = game.showingSolution ? '#0F0' : '#F00';
     ctx.lineWidth = 0.1;
     ctx.beginPath();
     ctx.moveTo(game.pathHead.x + 0.25, game.pathHead.y);
@@ -175,10 +196,20 @@ function draw(): void {
         ctx.fillText(num, x, y);
     }
     ctx.stroke();
+    // if the path goes through a number, highlight it
+    ctx.setLineDash([]);
+    ctx.strokeStyle = '#05F';
+    ctx.lineWidth = 0.1;
+    ctx.beginPath();
+    for (const p of game.path) {
+        if (grid[p.y][p.x] > 0) {
+            ctx.moveTo(p.x + 0.4, p.y);
+            ctx.arc(p.x, p.y, 0.4, 0, 2 * Math.PI);
+        }
+    }
+    ctx.stroke();
     // remove the transform from earlier
     ctx.restore();
-    const pathOutlineLocs: Vec2d[] = [];
-    // if path goes through a number, add an extra outline to the number
 }
 function drawPath(color: string, size: number, path: Vec2d[], lineJoin: CanvasLineJoin = 'round', lineCap: CanvasLineCap = 'round'): void {
     if (path.length == 0) return;
@@ -197,8 +228,6 @@ function drawPath(color: string, size: number, path: Vec2d[], lineJoin: CanvasLi
     ctx.stroke();
     ctx.restore();
 }
-window.addEventListener('load', () => queueDraw());
-window.addEventListener('resize', () => queueDraw());
 (async () => {
     while (true) {
         await new Promise<void>((resolve) => {
@@ -211,7 +240,10 @@ window.addEventListener('resize', () => queueDraw());
     }
 })();
 
-function move(dir: Vec2d, isUndo = false) {
+window.addEventListener('load', () => setGridSize(10, 10));
+window.addEventListener('resize', () => queueDraw());
+
+export function move(dir: Vec2d, isUndo = false) {
     const head = game.path[game.path.length - 1];
     if (head !== undefined) {
         const pos = head.add(dir);
@@ -278,10 +310,10 @@ function updateKeypress(e: KeyboardEvent) {
     else if (key == 'D' || key == 'ARROWRIGHT') move(Vec2d.i);
     else if (key == 'Z') undo();
     else if (key == 'Y' || (key == 'Z' && e.shiftKey)) redo();
-    else if (key == 'R' && e.shiftKey) generateGame();
+    else if (key == 'R' && e.shiftKey) generateGame(g.w, g.h);
 }
 
-let canvasRect: DOMRect;
+let canvasRect: DOMRect = canvas.getBoundingClientRect();
 const keys: Set<string> = new Set();
 const mouse: {
     pos: Vec2d
@@ -301,7 +333,6 @@ function onMouseMove(e: MouseEvent | Touch) {
         Math.floor((e.clientX - canvasRect.left - 4 - c.x * adjustedScale) / adjustedScale),
         Math.floor((e.clientY - canvasRect.top - 4 - c.y * adjustedScale) / adjustedScale)
     );
-    console.log(mouse.pos, mouse.gridPos);
     updateMouse();
 }
 document.addEventListener('keydown', (e) => {

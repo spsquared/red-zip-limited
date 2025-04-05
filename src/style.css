@@ -5,11 +5,52 @@ body {
     font-family: 'Jura';
 }
 
+input,
+button,
+select,
+option {
+    font-family: 'Jura';
+}
+
+input,
+button,
+select {
+    border: 2px solid black;
+    cursor: pointer;
+    background-color: #EEE;
+}
+
+input:hover,
+button:hover,
+select:hover,
+input[type=text]:focus,
+input[type=number]:focus {
+    background-color: #FFF;
+}
+
+input[type=button]:active,
+button:active {
+    background-color: #DDD;
+}
+
+input[type=text],
+input[type=number] {
+    cursor: text;
+}
+
+input:disabled,
+button:disabled,
+select:disabled {
+    background-color: #AAA;
+    cursor: not-allowed;
+}
+
 #root {
     display: grid;
     width: 100%;
     height: 100%;
     grid-template-rows: min-content 1fr min-content;
+    overflow: hidden;
 }
 
 #title {
@@ -22,6 +63,7 @@ body {
 
 #canvasWrapper {
     display: flex;
+    position: relative;
     top: 0px;
     left: 0px;
     min-width: 0px;
@@ -40,4 +82,103 @@ body {
     border: 4px solid black;
     background-color: white;
     flex-shrink: 1;
+}
+
+#canvasLoadingCover {
+    display: flex;
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: 200ms linear opacity;
+}
+
+#canvasLoadingSpinner {
+    display: block;
+    height: 20%;
+    aspect-ratio: 1;
+    background-color: blue;
+    animation: 2000ms cubic-bezier(0.8, -0.7, 0.5, 1.5) -1400ms ui-loading-spinner-spin infinite;
+}
+
+#controls {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    row-gap: 8px;
+    column-gap: 24px;
+}
+
+#controls>span {
+    text-wrap: nowrap;
+    word-wrap: nowrap;
+}
+
+#instructions {
+    position: relative;
+    box-sizing: border-box;
+    border-top: 4px solid black;
+    margin-top: 8px;
+    overflow-y: auto;
+    min-height: max(4em, calc(15em - 20vw));
+    margin-bottom: -4px;
+    transition: 500ms ease min-height;
+    overflow: hidden;
+}
+
+#instructionsClose {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background-color: #F00;
+    font: bold 12px;
+}
+
+#instructionsContent {
+    position: absolute;
+    width: 100vw;
+    height: 100%;
+    margin: 8px 8px;
+    text-align: center;
+    font: 20px 'Apex Mk2';
+}
+
+#instructionsControls {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    column-gap: 2em;
+    justify-content: center;
+    color: #555;
+    font-size: 16px;
+}
+
+@keyframes ui-loading-spinner-spin {
+
+    0%,
+    25% {
+        transform: rotateZ(0deg);
+        background-color: #00F;
+        box-shadow: 0px 0px 4px #00F;
+    }
+
+    50%,
+    75% {
+        transform: rotateZ(90deg);
+        background-color: #F00;
+        box-shadow: 0px 0px 4px #F00;
+    }
+
+    100% {
+        transform: rotateZ(180deg);
+        background-color: #00F;
+        box-shadow: 0px 0px 4px #00F;
+    }
 }

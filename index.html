@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
-  <head>
+
+<head>
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -27,22 +28,40 @@
     <script type="module" src="/src/style.ts"></script>
     <script type="module" src="/src/main.ts" defer></script>
 </head>
-  <body>
+
+<body>
     <div id="root">
         <h1 id="title"><span style="color: red; font-weight: bolder">Red</span> Zip Limited</h1>
         <div id="canvasWrapper">
             <canvas id="canvas"></canvas>
+            <div id="canvasLoadingCover">
+                <div id="canvasLoadingSpinner"></div>
+            </div>
         </div>
-        <div>
-            peak UI
-            <br>
-            find a path through the entire grid, connecting all the numbers in order
-            <br>
-            Drag path using mouse
-            <br>
-            WASD/arrows to move using keyboard
-            <br> Z - undo; Shift+Z / Y - redo; Ctrl+R - regenerate level
+        <div id="controls">
+            <span title="Size of grid, width x height">
+                <b>Size:</b>
+                <input type="number" id="gWidth" min="2" max="100" step="1" value="10">
+                x
+                <input type="number" id="gHeight" min="2" max="100" step="1" value="10">
+            </span>
+            <input type="button" id="regenButton" value="Regenerate">
+            <input type="button" id="solutionButton" value="Show Solution">
+        </div>
+        <div id="instructions">
+            <div id="instructionsContent">
+                <b>Find a path filling the whole grid, connecting the numbers in order</b>
+                <div id="instructionsControls">
+                    <span>Mouse - drag path</span>
+                    <span>WASD/Arrow keys - move path</span>
+                    <span>Z - undo</span>
+                    <span>Y/Shift+Z - redo</span>
+                    <span>Shift+R - regenerate</span>
+                </div>
+            </div>
+            <input type="button" id="instructionsClose" value="X">
         </div>
     </div>
-  </body>
+</body>
+
 </html>
