@@ -98,12 +98,18 @@ export async function generateGame(w: number, h: number, walls: boolean = true):
             }
         }
     }
+    game.pathEndNum = j;
+    resetGame();
+    queueDraw();
+}
+export function resetGame(): void {
+    game.showingSolution = false;
     // start at first
+    const first = game.solution[0];
     game.path = [first];
     game.pathVisited = new Set([first.y * g.w + first.x]);
     game.pathHead = first;
     game.pathCurrNum = 1;
-    game.pathEndNum = j;
     game.undoStack = [];
     game.redoStack = [];
     queueDraw();
@@ -390,7 +396,7 @@ function updateKeypress(e: KeyboardEvent) {
     else if (key == 'D' || key == 'ARROWRIGHT') move(Vec2d.i);
     else if (key == 'Z') undo();
     else if (key == 'Y' || (key == 'Z' && e.shiftKey)) redo();
-    else if (key == 'R' && e.shiftKey) generateGame(g.w, g.h);
+    else if (key == 'R' && e.shiftKey) resetGame();
 }
 
 let canvasRect: DOMRect = canvas.getBoundingClientRect();

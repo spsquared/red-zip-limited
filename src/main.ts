@@ -1,5 +1,5 @@
 import './game';
-import { generateGame, showSolution } from './game';
+import { generateGame, resetGame, showSolution } from './game';
 
 window.addEventListener('load', () => generateGame(10, 10));
 
@@ -15,6 +15,7 @@ function setSizeAndRefresh() {
 }
 
 document.getElementById('regenButton')!.onclick = () => setSizeAndRefresh();
+document.getElementById('resetButton')!.onclick = () => resetGame();
 document.getElementById('solutionButton')!.onclick = () => showSolution();
 
 document.getElementById('instructionsClose')!.onclick = () => document.getElementById('instructions')!.style.minHeight = '0px';
