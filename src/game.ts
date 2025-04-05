@@ -1,8 +1,9 @@
 import { Vec2d } from "./common";
 import { hamGen } from "./hamgen";
 
-export const canvas: HTMLCanvasElement = document.getElementById('canvas') as HTMLCanvasElement;
-export const ctx = canvas.getContext('2d')!;
+const canvas = document.getElementById('canvas') as HTMLCanvasElement;
+const ctx = canvas.getContext('2d')!;
+const canvasShimmer = document.getElementById('canvasShimmer') as HTMLDivElement;
 
 const resolution = 800;
 canvas.width = resolution;
@@ -62,6 +63,7 @@ const game: {
 
 export async function generateGame(w: number, h: number, walls: boolean = true): Promise<void> {
     game.showingSolution = false;
+    canvasShimmer.style.display = '';
     game.solution = await hamGen(w, h);
     setGridSize(w, h);
     // first & last positions are fixed, other numbers generated at roughly even intervals
@@ -114,6 +116,16 @@ export function showSolution(): void {
         game.showSolutionIndex = 0;
         game.showSolutionStart = performance.now();
         game.showingSolution = true;
+    }
+}
+function checkSolution(): void {
+    // if the grid is filled, it must be the right order
+    if (game.path.length == game.solution.length) {
+        // reusing solution code to show solution & block input
+        game.solution = game.path;
+        game.showingSolution = true;
+        game.showSolutionStart = -Infinity;
+        canvasShimmer.style.display = 'block';
     }
 }
 
@@ -297,7 +309,7 @@ window.addEventListener('resize', () => queueDraw());
 
 export function move(dir: Vec2d, isUndo = false) {
     const head = game.path[game.path.length - 1];
-    if (head !== undefined) {
+    if (head !== undefined && !game.showingSolution) {
         const pos = head.add(dir);
         if (pos.x >= 0 && pos.x < g.w && pos.y >= 0 && pos.y < g.h) {
             // can only move if neighbor
@@ -307,6 +319,7 @@ export function move(dir: Vec2d, isUndo = false) {
                     const rem = game.path.pop()!;
                     game.pathVisited.delete(rem.y * g.w + rem.x);
                     if (grid[rem.y][rem.x] != 0) game.pathCurrNum = grid[rem.y][rem.x] - 1;
+                    checkSolution();
                     queueDraw();
                     if (!isUndo) {
                         game.undoStack.push(dir.negate());
@@ -316,9 +329,11 @@ export function move(dir: Vec2d, isUndo = false) {
                     && (grid[pos.y][pos.x] == 0 || grid[pos.y][pos.x] == game.pathCurrNum + 1)
                     && game.pathCurrNum != game.pathEndNum
                     && ((wallGrid[head.y][head.x] >> Vec2d.dirs.findIndex((v) => v.equals(dir))) & 1) == 0) {
+                    // go forward
                     game.path.push(pos);
                     game.pathVisited.add(pos.y * g.w + pos.x);
                     if (grid[pos.y][pos.x] != 0) game.pathCurrNum = grid[pos.y][pos.x];
+                    checkSolution();
                     queueDraw();
                     if (!isUndo) {
                         game.undoStack.push(dir.negate());
