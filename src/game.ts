@@ -53,7 +53,6 @@ const game = {
 };
 
 export async function generateGame(w: number, h: number, walls: boolean = true): Promise<void> {
-    game.showingSolution = false;
     game.solution = await hamGen(w, h);
     setGridSize(w, h);
     game.startTime = performance.now();
