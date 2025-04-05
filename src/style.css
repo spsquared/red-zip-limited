@@ -38,6 +38,12 @@ input[type=number] {
     cursor: text;
 }
 
+input[type=checkbox] {
+    width: 1em;
+    height: 1em;
+    margin: 2px 2px;
+}
+
 input:disabled,
 button:disabled,
 select:disabled {

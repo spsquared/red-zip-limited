@@ -6,13 +6,12 @@ Algorithm adapted from https://clisby.net/projects/hamiltonian_path/
 const quality = 1;
 async function hamGen(w: number, h: number): Promise<Vec2d[]> {
     const area = w * h;
-    const dirs = [Vec2d.i.mult(-1), Vec2d.j.mult(-1), Vec2d.i, Vec2d.j];
     const path: Vec2d[] = [new Vec2d(Math.floor(Math.random() * w), Math.floor(Math.random() * h))];
     let n = 1;
     const attempts = 1 + (quality * 10 * area * (Math.log(2 + area) ** 2));
     while (n < area) {
         for (let i = 0; i < attempts; i++) {
-            const dir = dirs[Math.floor(Math.random() * 4)];
+            const dir = Vec2d.dirs[Math.floor(Math.random() * 4)];
             if (Math.random() < 0.5) {
                 const neighbor = path[0].add(dir);
                 if (neighbor.x >= 0 && neighbor.x < w && neighbor.y >= 0 && neighbor.y < h) {

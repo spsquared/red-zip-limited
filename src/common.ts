@@ -50,4 +50,5 @@ export class Vec2d {
     static readonly zero: Vec2d = new Vec2d(0, 0);
     static readonly i: Vec2d = new Vec2d(1, 0);
     static readonly j: Vec2d = new Vec2d(0, 1);
+    static readonly dirs: readonly [Vec2d, Vec2d, Vec2d, Vec2d] = [Vec2d.i.mult(-1), Vec2d.j.mult(-1), Vec2d.i, Vec2d.j] as const;
 }

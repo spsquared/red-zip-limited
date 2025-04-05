@@ -9,6 +9,7 @@ canvas.width = resolution;
 canvas.height = resolution;
 
 const grid: number[][] = [];
+const wallGrid: number[][] = [];
 const g = {
     w: 20,
     h: 20
@@ -23,6 +24,8 @@ function setGridSize(w: number, h: number): void {
     g.h = h;
     grid.length = 0;
     grid.push(...Array(g.h).fill(0).map(() => Array(g.w).fill(0)));
+    wallGrid.length = 0;
+    wallGrid.push(...Array(g.h).fill(0).map(() => Array(g.w).fill(0)));
     c.s = resolution / Math.max(g.w, g.h);
     c.x = (resolution - c.s * g.w) / 2 / c.s;
     c.y = (resolution - c.s * g.h) / 2 / c.s;
@@ -57,10 +60,11 @@ const game: {
     showSolutionStart: 0
 };
 
-export async function generateGame(w: number, h: number): Promise<void> {
+export async function generateGame(w: number, h: number, walls: boolean = true): Promise<void> {
     game.showingSolution = false;
     game.solution = await hamGen(w, h);
     setGridSize(w, h);
+    // first & last positions are fixed, other numbers generated at roughly even intervals
     const first = game.solution[0];
     grid[first.y][first.x] = 1;
     let j = 2;
@@ -73,6 +77,26 @@ export async function generateGame(w: number, h: number): Promise<void> {
     }
     const last = game.solution[game.solution.length - 1];
     grid[last.y][last.x] = j;
+    // generate walls using a bitmask (first/last don't get any this method)
+    if (walls) {
+        for (let i = 2; i < game.solution.length; i++) {
+            if (Math.random() < 0.5) {
+                // don't generate walls in the path
+                const curr = game.solution[i - 1];
+                const dirIndex = Math.floor(Math.random() * 4);
+                const dir = Vec2d.dirs[dirIndex];
+                if (!dir.equals(game.solution[i - 2].sub(curr)) && !dir.equals(game.solution[i].sub(curr))) {
+                    // add to self and the neighbor (2-directional), don't put any off the map
+                    const opp = curr.add(dir);
+                    if (opp.x >= 0 && opp.x < g.w && opp.y >= 0 && opp.y < g.h) {
+                        wallGrid[curr.y][curr.x] |= 1 << dirIndex;
+                        wallGrid[opp.y][opp.x] |= 1 << ((dirIndex + 2) % 4);
+                    }
+                }
+            }
+        }
+    }
+    // start at first
     game.path = [first];
     game.pathVisited = new Set([first.y * g.w + first.x]);
     game.pathHead = first;
@@ -153,7 +177,6 @@ function draw(): void {
         drawPath(pathColor, 0.4, [path[0], game.pathHead]);
     }
     // trnaslate to center onto the grid cells
-    ctx.save();
     ctx.translate(0.5, 0.5);
     // path head
     ctx.strokeStyle = game.showingSolution ? '#0F0' : '#F00';
@@ -173,12 +196,13 @@ function draw(): void {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.beginPath();
+    const r = 0.35;
     const numberLocs: [number, number, string][] = [];
     for (let y = 0; y < g.h; y++) {
         for (let x = 0; x < g.w; x++) {
             if (grid[y][x] > 0) {
-                ctx.moveTo(x + 0.4, y);
-                ctx.arc(x, y, 0.4, 0, 2 * Math.PI);
+                ctx.moveTo(x + r, y);
+                ctx.arc(x, y, r, 0, 2 * Math.PI);
                 numberLocs.push([x, y, grid[y][x].toString()]);
             }
         }
@@ -188,11 +212,11 @@ function draw(): void {
     ctx.strokeStyle = '#DDD';
     ctx.fillStyle = '#000';
     ctx.beginPath();
-    const outlineDashAngle = dashLength / 0.4;
-    const outLineDashOffset = [0.4 * Math.cos(outlineDashAngle), 0.4 * Math.sin(outlineDashAngle)]
+    const outlineDashAngle = dashLength / r;
+    const outLineDashOffset = [r * Math.cos(outlineDashAngle), r * Math.sin(outlineDashAngle)]
     for (const [x, y, num] of numberLocs) {
         ctx.moveTo(x + outLineDashOffset[0], y + outLineDashOffset[1]);
-        ctx.arc(x, y, 0.4, outlineDashAngle, outlineDashAngle + 2 * Math.PI);
+        ctx.arc(x, y, r, outlineDashAngle, outlineDashAngle + 2 * Math.PI);
         ctx.fillText(num, x, y);
     }
     ctx.stroke();
@@ -201,15 +225,43 @@ function draw(): void {
     ctx.strokeStyle = '#05F';
     ctx.lineWidth = 0.1;
     ctx.beginPath();
-    for (const p of game.path) {
+    for (const p of path) {
         if (grid[p.y][p.x] > 0) {
-            ctx.moveTo(p.x + 0.4, p.y);
-            ctx.arc(p.x, p.y, 0.4, 0, 2 * Math.PI);
+            ctx.moveTo(p.x + r, p.y);
+            ctx.arc(p.x, p.y, r, 0, 2 * Math.PI);
         }
     }
     ctx.stroke();
     // remove the transform from earlier
-    ctx.restore();
+    ctx.translate(-0.5, -0.5);
+    // draw walls
+    ctx.strokeStyle = '#000';
+    ctx.lineCap = 'square';
+    ctx.beginPath();
+    for (let y = 0; y < g.h; y++) {
+        for (let x = 0; x < g.w; x++) {
+            // microoptimization #1
+            if (wallGrid[y][x] == 0) continue;
+            // #2: only draw top/left walls since bottom/right will be drawn by adjacent squares
+            if (wallGrid[y][x] & 0b0001) {
+                ctx.moveTo(x, y);
+                ctx.lineTo(x, y + 1);
+            }
+            if (wallGrid[y][x] & 0b0010) {
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + 1, y);
+            }
+            // if (wallGrid[y][x] & 0b0100) {
+            //     ctx.moveTo(x + 1, y);
+            //     ctx.lineTo(x + 1, y + 1);
+            // }
+            // if (wallGrid[y][x] & 0b1000) {
+            //     ctx.moveTo(x, y + 1);
+            //     ctx.lineTo(x + 1, y + 1);
+            // }
+        }
+    }
+    ctx.stroke();
 }
 function drawPath(color: string, size: number, path: Vec2d[], lineJoin: CanvasLineJoin = 'round', lineCap: CanvasLineCap = 'round'): void {
     if (path.length == 0) return;
@@ -260,7 +312,10 @@ export function move(dir: Vec2d, isUndo = false) {
                         game.undoStack.push(dir.negate());
                         game.redoStack.length = 0;
                     }
-                } else if (!game.pathVisited.has(pos.y * g.w + pos.x) && (grid[pos.y][pos.x] == 0 || grid[pos.y][pos.x] == game.pathCurrNum + 1) && game.pathCurrNum != game.pathEndNum) {
+                } else if (!game.pathVisited.has(pos.y * g.w + pos.x)
+                    && (grid[pos.y][pos.x] == 0 || grid[pos.y][pos.x] == game.pathCurrNum + 1)
+                    && game.pathCurrNum != game.pathEndNum
+                    && ((wallGrid[head.y][head.x] >> Vec2d.dirs.findIndex((v) => v.equals(dir))) & 1) == 0) {
                     game.path.push(pos);
                     game.pathVisited.add(pos.y * g.w + pos.x);
                     if (grid[pos.y][pos.x] != 0) game.pathCurrNum = grid[pos.y][pos.x];
@@ -298,11 +353,21 @@ function updateMouse() {
 function updateKeyboard() {
 
 }
+function updateMouseMove(e: MouseEvent | Touch) {
+    mouse.pos = new Vec2d(e.clientX - canvasRect.left - 4, e.clientY - canvasRect.top - 4);
+    const adjustedScale = c.s * (canvasRect.height - 8) / resolution;
+    mouse.gridPos = new Vec2d(
+        Math.floor((e.clientX - canvasRect.left - 4 - c.x * adjustedScale) / adjustedScale),
+        Math.floor((e.clientY - canvasRect.top - 4 - c.y * adjustedScale) / adjustedScale)
+    );
+    updateMouse();
+}
 function updateKeypress(e: KeyboardEvent) {
     const key = e.key.toUpperCase();
     if ((e.target instanceof HTMLElement && e.target.matches('input'))
         || ((key == 'I' || key == 'C') && e.ctrlKey && e.shiftKey && !e.altKey)
-        || ((key == '=' || key == '-') && e.ctrlKey && !e.shiftKey && !e.altKey)) return;
+        || ((key == '=' || key == '-') && e.ctrlKey && !e.shiftKey && !e.altKey)
+        || key == 'F11' || key == 'F12') return;
     e.preventDefault();
     if (key == 'W' || key == 'ARROWUP') move(Vec2d.j.mult(-1));
     else if (key == 'S' || key == 'ARROWDOWN') move(Vec2d.j);
@@ -326,15 +391,6 @@ const mouse: {
     buttons: new Set(),
     touchActive: false
 };
-function onMouseMove(e: MouseEvent | Touch) {
-    mouse.pos = new Vec2d(e.clientX - canvasRect.left - 4, e.clientY - canvasRect.top - 4);
-    const adjustedScale = c.s * (canvasRect.height - 8) / resolution;
-    mouse.gridPos = new Vec2d(
-        Math.floor((e.clientX - canvasRect.left - 4 - c.x * adjustedScale) / adjustedScale),
-        Math.floor((e.clientY - canvasRect.top - 4 - c.y * adjustedScale) / adjustedScale)
-    );
-    updateMouse();
-}
 document.addEventListener('keydown', (e) => {
     keys.add(e.key);
     updateKeypress(e);
@@ -345,13 +401,13 @@ document.addEventListener('keyup', (e) => {
 });
 document.addEventListener('mousedown', (e) => {
     mouse.buttons.add(e.button);
-    onMouseMove(e);
+    updateMouseMove(e);
 });
 document.addEventListener('mouseup', (e) => {
     mouse.buttons.delete(e.button);
 });
 document.addEventListener('mousemove', (e) => {
-    onMouseMove(e);
+    updateMouseMove(e);
 });
 document.addEventListener('touchstart', () => {
     mouse.touchActive = true;
@@ -363,7 +419,7 @@ document.addEventListener('touchend', () => {
     mouse.touchActive = false;
 });
 canvas.addEventListener('touchmove', (e) => {
-    onMouseMove(e.touches[0]);
+    updateMouseMove(e.touches[0]);
     e.preventDefault();
 });
 document.addEventListener('blur', () => {

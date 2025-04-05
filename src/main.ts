@@ -5,12 +5,13 @@ window.addEventListener('load', () => generateGame(10, 10));
 
 const gridWidthInput = document.getElementById('gWidth') as HTMLInputElement;
 const gridHeightInput = document.getElementById('gHeight') as HTMLInputElement;
+const genWallInput = document.getElementById('genWalls') as HTMLInputElement;
 function setSizeAndRefresh() {
     const w = Math.min(100, Math.max(2, Math.round(Number(gridWidthInput.value))));
     const h = Math.min(100, Math.max(2, Math.round(Number(gridHeightInput.value))));
     gridWidthInput.value = w.toString();
     gridHeightInput.value = h.toString();
-    generateGame(w, h);
+    generateGame(w, h, genWallInput.checked);
 }
 
 document.getElementById('regenButton')!.onclick = () => setSizeAndRefresh();

@@ -45,8 +45,12 @@
                 x
                 <input type="number" id="gHeight" min="2" max="100" step="1" value="10">
             </span>
-            <input type="button" id="regenButton" value="Regenerate">
-            <input type="button" id="solutionButton" value="Show Solution">
+            <input type="button" id="regenButton" value="Regenerate" title="Regenerate the puzzle">
+            <input type="button" id="solutionButton" value="Show Solution" title="Show the puzzle solution (click twice to skip animation)">
+            <label title="Toggle generating walls">
+                Walls:
+                <input type="checkbox" id="genWalls" checked>
+            </label>
         </div>
         <div id="instructions">
             <div id="instructionsContent">
