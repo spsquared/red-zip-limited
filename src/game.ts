@@ -308,8 +308,8 @@ function drawPath(color: string, size: number, path: Vec2d[], lineJoin: CanvasLi
 function updateTimer() {
     const t = (game.endTime > 0 ? game.endTime : performance.now()) - game.startTime;
     const h = (t / 3600000).toFixed(0);
-    const m = (t / 60000).toFixed(0).padStart(2, '0');
-    const s = (t / 1000).toFixed(0).padStart(2, '0');
+    const m = ((t / 60000) % 60).toFixed(0).padStart(2, '0');
+    const s = ((t / 1000) % 60).toFixed(0).padStart(2, '0');
     timer.innerHTML = [...`${h != '0' ? h + ':' : ''}${m}:${s}`].reduce((html, char) => html + `<span>${char}</span>`, '');
 }
 (() => setInterval(() => updateTimer(), 100))();
