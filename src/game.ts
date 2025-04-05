@@ -4,7 +4,7 @@ import { hamGen } from "./hamgen";
 export const canvas: HTMLCanvasElement = document.getElementById('canvas') as HTMLCanvasElement;
 export const ctx = canvas.getContext('2d')!;
 
-export const resolution = 800;
+const resolution = 800;
 canvas.width = resolution;
 canvas.height = resolution;
 
@@ -24,8 +24,8 @@ export function setGridSize(w: number, h: number): void {
     grid.length = 0;
     grid.push(...Array(g.h).fill(0).map(() => Array(g.w).fill(0)));
     c.s = resolution / Math.max(g.w, g.h);
-    c.x = (resolution - c.s * g.w) / 2;
-    c.y = (resolution - c.s * g.h) / 2;
+    c.x = (resolution - c.s * g.w) / 2 / c.s;
+    c.y = (resolution - c.s * g.h) / 2 / c.s;
 }
 setGridSize(10, 8);
 
@@ -98,8 +98,8 @@ function draw(): void {
     ctx.fillStyle = '#333';
     ctx.fillRect(0, 0, resolution, resolution);
     // transform to grid
-    ctx.translate(c.x, c.y);
     ctx.scale(c.s, c.s);
+    ctx.translate(c.x, c.y);
     // grid background
     ctx.fillStyle = '#FFF';
     ctx.fillRect(0, 0, g.w, g.h);
@@ -127,6 +127,9 @@ function draw(): void {
         const a = game.path[game.path.length - 1], b = game.path[game.path.length - 2];
         const offset = b.sub(a).dot(a.sub(game.pathHead)) < 0 ? 1 : 0;
         drawPath('#DAFC', 0.4, [...game.path.slice(0, game.path.length - offset), game.pathHead]);
+    } else if (game.path.length > 0) {
+        // edge case moment
+        drawPath('#DAFC', 0.4, [game.path[0], game.pathHead]);
     }
     // trnaslate to center onto the grid cells
     ctx.save();
@@ -139,22 +142,23 @@ function draw(): void {
     ctx.arc(game.pathHead.x, game.pathHead.y, 0.25, 0, 2 * Math.PI);
     ctx.stroke();
     // numbers (have two colors in dashed outline)
-    ctx.fillStyle = '#7BE';
+    ctx.fillStyle = '#0BF';
     ctx.strokeStyle = '#AAA';
     const dashLength = 0.05 * Math.PI;
     ctx.setLineDash([dashLength, dashLength]);
+    ctx.lineCap = 'butt';
     ctx.lineWidth = 0.05;
-    ctx.font = '0.5px monospace';
+    ctx.font = '0.5px \'Apex Mk2\'';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.beginPath();
-    const outlineLocs: [number, number, string][] = [];
+    const numberLocs: [number, number, string][] = [];
     for (let y = 0; y < g.h; y++) {
         for (let x = 0; x < g.w; x++) {
             if (grid[y][x] > 0) {
                 ctx.moveTo(x + 0.4, y);
                 ctx.arc(x, y, 0.4, 0, 2 * Math.PI);
-                outlineLocs.push([x, y, grid[y][x].toString()]);
+                numberLocs.push([x, y, grid[y][x].toString()]);
             }
         }
     }
@@ -165,7 +169,7 @@ function draw(): void {
     ctx.beginPath();
     const outlineDashAngle = dashLength / 0.4;
     const outLineDashOffset = [0.4 * Math.cos(outlineDashAngle), 0.4 * Math.sin(outlineDashAngle)]
-    for (const [x, y, num] of outlineLocs) {
+    for (const [x, y, num] of numberLocs) {
         ctx.moveTo(x + outLineDashOffset[0], y + outLineDashOffset[1]);
         ctx.arc(x, y, 0.4, outlineDashAngle, outlineDashAngle + 2 * Math.PI);
         ctx.fillText(num, x, y);
@@ -253,8 +257,8 @@ function redo() {
     }
 }
 function updateMouse() {
-    if (inputMouse.buttons.has(0) || inputMouse.touchActive) {
-        const pos = inputMouse.gridPos;
+    if (mouse.buttons.has(0) || mouse.touchActive) {
+        const pos = mouse.gridPos;
         const head = game.path[game.path.length - 1];
         if (head !== undefined) move(pos.sub(head));
     }
@@ -264,18 +268,22 @@ function updateKeyboard() {
 }
 function updateKeypress(e: KeyboardEvent) {
     const key = e.key.toUpperCase();
-    if (e.target instanceof HTMLElement && e.target.matches('input') || ((key == 'I' || key == 'C') && e.ctrlKey && e.shiftKey && !e.altKey)) return;
+    if ((e.target instanceof HTMLElement && e.target.matches('input'))
+        || ((key == 'I' || key == 'C') && e.ctrlKey && e.shiftKey && !e.altKey)
+        || ((key == '=' || key == '-') && e.ctrlKey && !e.shiftKey && !e.altKey)) return;
     e.preventDefault();
     if (key == 'W' || key == 'ARROWUP') move(Vec2d.j.mult(-1));
     else if (key == 'S' || key == 'ARROWDOWN') move(Vec2d.j);
     else if (key == 'A' || key == 'ARROWLEFT') move(Vec2d.i.mult(-1));
     else if (key == 'D' || key == 'ARROWRIGHT') move(Vec2d.i);
-    else if (key == 'Z' && e.ctrlKey && !e.shiftKey && !e.altKey) undo();
-    else if ((key == 'Y' && e.ctrlKey && !e.shiftKey && !e.altKey) || (key == 'Z' && e.ctrlKey && e.shiftKey && !e.altKey)) redo();
+    else if (key == 'Z') undo();
+    else if (key == 'Y' || (key == 'Z' && e.shiftKey)) redo();
+    else if (key == 'R' && e.shiftKey) generateGame();
 }
 
-const inputKeys: Set<string> = new Set();
-const inputMouse: {
+let canvasRect: DOMRect;
+const keys: Set<string> = new Set();
+const mouse: {
     pos: Vec2d
     gridPos: Vec2d
     readonly buttons: Set<number>
@@ -287,44 +295,50 @@ const inputMouse: {
     touchActive: false
 };
 function onMouseMove(e: MouseEvent | Touch) {
-    const rect = canvas.getBoundingClientRect();
-    inputMouse.pos = new Vec2d(e.clientX - rect.left, e.clientY - rect.top);
-    inputMouse.gridPos = new Vec2d(Math.floor((e.clientX - rect.left - c.x) / c.s), Math.floor((e.clientY - rect.top - c.y) / c.s));
+    mouse.pos = new Vec2d(e.clientX - canvasRect.left - 4, e.clientY - canvasRect.top - 4);
+    const adjustedScale = c.s * (canvasRect.height - 8) / resolution;
+    mouse.gridPos = new Vec2d(
+        Math.floor((e.clientX - canvasRect.left - 4 - c.x * adjustedScale) / adjustedScale),
+        Math.floor((e.clientY - canvasRect.top - 4 - c.y * adjustedScale) / adjustedScale)
+    );
+    console.log(mouse.pos, mouse.gridPos);
     updateMouse();
 }
 document.addEventListener('keydown', (e) => {
-    inputKeys.add(e.key);
+    keys.add(e.key);
     updateKeypress(e);
     updateKeyboard();
 });
 document.addEventListener('keyup', (e) => {
-    inputKeys.delete(e.key);
+    keys.delete(e.key);
 });
 document.addEventListener('mousedown', (e) => {
-    inputMouse.buttons.add(e.button);
+    mouse.buttons.add(e.button);
     onMouseMove(e);
 });
 document.addEventListener('mouseup', (e) => {
-    inputMouse.buttons.delete(e.button);
+    mouse.buttons.delete(e.button);
 });
 document.addEventListener('mousemove', (e) => {
     onMouseMove(e);
 });
 document.addEventListener('touchstart', () => {
-    inputMouse.touchActive = true;
+    mouse.touchActive = true;
 });
 document.addEventListener('touchend', () => {
-    inputMouse.touchActive = false;
+    mouse.touchActive = false;
 });
 document.addEventListener('touchend', () => {
-    inputMouse.touchActive = false;
+    mouse.touchActive = false;
 });
 canvas.addEventListener('touchmove', (e) => {
     onMouseMove(e.touches[0]);
     e.preventDefault();
 });
-
 document.addEventListener('blur', () => {
-    inputKeys.clear();
-    inputMouse.buttons.clear();
+    // don't let game think stuff is held down when it isn't
+    keys.clear();
+    mouse.buttons.clear();
 });
+window.addEventListener('load', () => canvasRect = canvas.getBoundingClientRect());
+window.addEventListener('resize', () => canvasRect = canvas.getBoundingClientRect());

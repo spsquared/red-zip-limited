@@ -1,5 +1,3 @@
-import './style.css';
-
 import './game';
 import { generateGame } from './game';
 

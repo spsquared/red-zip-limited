@@ -2,14 +2,47 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self' 'unsafe-eval' 'unsafe-inline';
+        script-src 'self' 'unsafe-eval' 'unsafe-inline';
+        script-src-elem 'self' 'unsafe-eval' 'unsafe-inline';
+        img-src 'self' data:;
+        frame-src 'self' 'unsafe-eval' 'unsafe-inline';
+        connect-src 'self' 'unsafe-eval' 'unsafe-inline';
+        ">
+    <meta name="title" content="Red Zip Limited">
+    <meta name="description" content="Zip Unlimited but it's Red and Limited">
+    <meta name="url" content="https://red-zip.web.app/">
+    <meta name="image" content="https://red-zip.web.app/favicon.png">
+    <meta property="og:title" content="Red Zip Limited">
+    <meta property="og:description" content="Zip Unlimited but it's Red and Limited">
+    <meta property="og:url" content="https://red-zip.web.app/">
+    <meta property="og:image" content="https://red-zip.web.app/favicon.png">
+    <meta property="og:image:width" content="156">
+    <meta property="og:image:height" content="156">
     <title>Red Zip Limited</title>
-  </head>
+    <link rel="icon" href="./favicon.png" type="image/x-icon">
+    <script type="module" src="/src/style.ts"></script>
+    <script type="module" src="/src/main.ts" defer></script>
+</head>
   <body>
     <div id="root">
-        <canvas id="canvas"></canvas>
+        <h1 id="title"><span style="color: red; font-weight: bolder">Red</span> Zip Limited</h1>
+        <div id="canvasWrapper">
+            <canvas id="canvas"></canvas>
+        </div>
+        <div>
+            peak UI
+            <br>
+            find a path through the entire grid, connecting all the numbers in order
+            <br>
+            Drag path using mouse
+            <br>
+            WASD/arrows to move using keyboard
+            <br> Z - undo; Shift+Z / Y - redo; Ctrl+R - regenerate level
+        </div>
     </div>
-    <script type="module" src="/src/main.ts" defer></script>
   </body>
 </html>
