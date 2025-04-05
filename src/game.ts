@@ -3,6 +3,7 @@ import { hamGen } from "./hamgen";
 
 const canvas = document.getElementById('canvas') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
+const timer = document.getElementById('timer') as HTMLDivElement;
 const canvasShimmer = document.getElementById('canvasShimmer') as HTMLDivElement;
 
 const resolution = 800;
@@ -33,39 +34,31 @@ function setGridSize(w: number, h: number): void {
     queueDraw();
 }
 
-const game: {
-    solution: Vec2d[]
-    numbers: Vec2d[]
-    path: Vec2d[]
-    pathVisited: Set<number>
-    pathHead: Vec2d
-    pathCurrNum: number
-    pathEndNum: number
-    undoStack: Vec2d[]
-    redoStack: Vec2d[]
-    showSolutionIndex: number,
-    showingSolution: boolean,
-    showSolutionStart: number
-} = {
-    solution: [],
-    numbers: [],
-    path: [],
-    pathVisited: new Set(),
+const game = {
+    solution: [] as Vec2d[],
+    numbers: [] as Vec2d[],
+    path: [] as Vec2d[],
+    pathVisited: new Set<number>(),
     pathHead: new Vec2d(0, 0),
     pathCurrNum: 0,
     pathEndNum: 0,
-    undoStack: [],
-    redoStack: [],
+    startTime: 0,
+    endTime: 0,
+    undoStack: [] as Vec2d[],
+    redoStack: [] as Vec2d[],
     showSolutionIndex: 0,
     showingSolution: false,
-    showSolutionStart: 0
+    showSolutionStart: 0,
+    solved: false
 };
 
 export async function generateGame(w: number, h: number, walls: boolean = true): Promise<void> {
     game.showingSolution = false;
-    canvasShimmer.style.display = '';
     game.solution = await hamGen(w, h);
     setGridSize(w, h);
+    game.startTime = performance.now();
+    game.endTime = -1;
+    timer.style.color = '';
     // first & last positions are fixed, other numbers generated at roughly even intervals
     const first = game.solution[0];
     grid[first.y][first.x] = 1;
@@ -104,6 +97,8 @@ export async function generateGame(w: number, h: number, walls: boolean = true):
 }
 export function resetGame(): void {
     game.showingSolution = false;
+    game.solved = false;
+    canvasShimmer.style.display = '';
     // start at first
     const first = game.solution[0];
     game.path = [first];
@@ -113,6 +108,7 @@ export function resetGame(): void {
     game.undoStack = [];
     game.redoStack = [];
     queueDraw();
+    updateTimer();
 }
 export function showSolution(): void {
     if (game.showingSolution) {
@@ -127,11 +123,10 @@ export function showSolution(): void {
 function checkSolution(): void {
     // if the grid is filled, it must be the right order
     if (game.path.length == game.solution.length) {
-        // reusing solution code to show solution & block input
-        game.solution = game.path;
-        game.showingSolution = true;
-        game.showSolutionStart = -Infinity;
+        game.solved = true;
+        if (game.endTime == -1) game.endTime = performance.now();
         canvasShimmer.style.display = 'block';
+        timer.style.color = '#0A0';
     }
 }
 
@@ -183,7 +178,7 @@ function draw(): void {
     }
     ctx.stroke();
     // path (+ solution path)
-    const pathColor = game.showingSolution ? '#0D0C' : '#F55C';
+    const pathColor = game.showingSolution || game.solved ? '#0D0C' : '#F55C';
     if (path.length > 1) {
         // real path head isn't drawn if it's ahead of the animated head
         // need directions, so 2 spots are needed
@@ -197,7 +192,7 @@ function draw(): void {
     // trnaslate to center onto the grid cells
     ctx.translate(0.5, 0.5);
     // path head
-    ctx.strokeStyle = game.showingSolution ? '#0F0' : '#F00';
+    ctx.strokeStyle = game.showingSolution || game.solved ? '#0F0' : '#F00';
     ctx.lineWidth = 0.1;
     ctx.beginPath();
     ctx.moveTo(game.pathHead.x + 0.25, game.pathHead.y);
@@ -310,12 +305,21 @@ function drawPath(color: string, size: number, path: Vec2d[], lineJoin: CanvasLi
     }
 })();
 
+function updateTimer() {
+    const t = (game.endTime > 0 ? game.endTime : performance.now()) - game.startTime;
+    const h = (t / 3600000).toFixed(0);
+    const m = (t / 60000).toFixed(0).padStart(2, '0');
+    const s = (t / 1000).toFixed(0).padStart(2, '0');
+    timer.innerHTML = [...`${h != '0' ? h + ':' : ''}${m}:${s}`].reduce((html, char) => html + `<span>${char}</span>`, '');
+}
+(() => setInterval(() => updateTimer(), 100))();
+
 window.addEventListener('load', () => setGridSize(10, 10));
 window.addEventListener('resize', () => queueDraw());
 
 export function move(dir: Vec2d, isUndo = false) {
     const head = game.path[game.path.length - 1];
-    if (head !== undefined && !game.showingSolution) {
+    if (head !== undefined && !game.showingSolution && !game.solved) {
         const pos = head.add(dir);
         if (pos.x >= 0 && pos.x < g.w && pos.y >= 0 && pos.y < g.h) {
             // can only move if neighbor
