@@ -378,11 +378,12 @@ function updateKeyboard() {
 
 }
 function updateMouseMove(e: MouseEvent | Touch) {
-    mouse.pos = new Vec2d(e.clientX - canvasRect.left - 4, e.clientY - canvasRect.top - 4);
-    const adjustedScale = c.s * (canvasRect.height - 8) / resolution;
+    const rect = canvas.getBoundingClientRect();;
+    mouse.pos = new Vec2d(e.clientX - rect.left - 4, e.clientY - rect.top - 4);
+    const adjustedScale = c.s * (rect.height - 8) / resolution;
     mouse.gridPos = new Vec2d(
-        Math.floor((e.clientX - canvasRect.left - 4 - c.x * adjustedScale) / adjustedScale),
-        Math.floor((e.clientY - canvasRect.top - 4 - c.y * adjustedScale) / adjustedScale)
+        Math.floor((e.clientX - rect.left - 4 - c.x * adjustedScale) / adjustedScale),
+        Math.floor((e.clientY - rect.top - 4 - c.y * adjustedScale) / adjustedScale)
     );
     updateMouse();
 }
@@ -402,7 +403,6 @@ function updateKeypress(e: KeyboardEvent) {
     else if (key == 'R' && e.shiftKey) resetGame();
 }
 
-let canvasRect: DOMRect = canvas.getBoundingClientRect();
 const keys: Set<string> = new Set();
 const mouse: {
     pos: Vec2d
@@ -451,5 +451,3 @@ document.addEventListener('blur', () => {
     keys.clear();
     mouse.buttons.clear();
 });
-window.addEventListener('load', () => canvasRect = canvas.getBoundingClientRect());
-window.addEventListener('resize', () => canvasRect = canvas.getBoundingClientRect());

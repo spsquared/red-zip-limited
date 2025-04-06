@@ -1,3 +1,9 @@
+export const isMobile = /mobile|android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(navigator.userAgent);
+
+if (isMobile) {
+    document.body.classList.add('mobile');
+}
+
 import './game';
 import { generateGame, resetGame, showSolution } from './game';
 

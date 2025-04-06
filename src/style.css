@@ -5,11 +5,18 @@ body {
     font-family: 'Jura';
 }
 
+body.mobile {
+    width: 100%;
+    height: unset;
+    margin: initial;
+}
+
 input,
 button,
 select,
 option {
     font-family: 'Jura';
+    font-size: 1em;
 }
 
 input,
