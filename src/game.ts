@@ -29,8 +29,8 @@ function setGridSize(w: number, h: number): void {
     wallGrid.length = 0;
     wallGrid.push(...Array(g.h).fill(0).map(() => Array(g.w).fill(0)));
     c.s = resolution / Math.max(g.w, g.h);
-    c.x = (resolution - c.s * g.w) / 2 / c.s;
-    c.y = (resolution - c.s * g.h) / 2 / c.s;
+    c.x = (c.s * g.w - resolution) / 2 / c.s;
+    c.y = (c.s * g.h - resolution) / 2 / c.s;
     queueDraw();
 }
 
@@ -129,22 +129,69 @@ function checkSolution(): void {
     }
 }
 
+let lastFrame = performance.now();
 let drawQueued = false;
 export function queueDraw(): void {
     drawQueued = true;
 };
 function updateFrame(): void {
+    const now = performance.now();
+    const deltaTime = now - lastFrame;
     // lerp animated head to real head
     const path = game.showingSolution ? game.solution.slice(0, game.showSolutionIndex) : game.path;
     if (path.length > 0) {
         const t = 0.4;
         const head = path[path.length - 1];
         game.pathHead = game.pathHead.mult(1 - t).add(head.mult(t));
-        if (game.pathHead.sub(head).magnitude() < 0.01) game.pathHead = head;
-        else queueDraw();
+        if (game.pathHead.sub(head).magnitude() < 0.01) {
+            if (!game.pathHead.equals(head)) queueDraw();
+            game.pathHead = head;
+        } else queueDraw();
     }
     // show solution by time
     if (game.showingSolution) game.showSolutionIndex = Math.min(game.solution.length, Math.floor((performance.now() - game.showSolutionStart) / 100));
+    // camera controls
+    let moved = false;
+    let ocs = c.s;
+    if (keys.has('[')) {
+        c.s /= deltaTime * 0.005 + 1;
+        moved = true;
+    }
+    if (keys.has(']')) {
+        c.s *= deltaTime * 0.005 + 1;
+        moved = true;
+    }
+    if (moved) {
+        // avoid tiny bug relating to camera speeds when zooming at limits
+        c.s = Math.max(resolution / Math.max(g.w, g.h), Math.min(c.s, resolution));
+        c.x += resolution / ocs / 2 - resolution / c.s / 2;
+        c.y += resolution / ocs / 2 - resolution / c.s / 2;
+    }
+    const cameraSpeed = deltaTime * (keys.has('SHIFT') ? 0.05 : 0.02);
+    if (keys.has('I')) {
+        c.y -= cameraSpeed;
+        moved = true;
+    }
+    if (keys.has('K')) {
+        c.y += cameraSpeed;
+        moved = true;
+    }
+    if (keys.has('J')) {
+        c.x -= cameraSpeed;
+        moved = true;
+    }
+    if (keys.has('L')) {
+        c.x += cameraSpeed;
+        moved = true;
+    }
+    if (moved) {
+        if (c.s * g.w >= resolution) c.x = Math.max(0, Math.min(c.x, (g.w * c.s - resolution) / c.s));
+        else c.x = (c.s * g.w - resolution) / 2 / c.s;
+        if (c.s * g.h >= resolution) c.y = Math.max(0, Math.min(c.y, (g.h * c.s - resolution) / c.s));
+        else c.y = (c.s * g.h - resolution) / 2 / c.s;
+        queueDraw();
+    }
+    lastFrame = now;
 }
 function draw(): void {
     drawQueued = false;
@@ -154,7 +201,7 @@ function draw(): void {
     ctx.fillRect(0, 0, resolution, resolution);
     // transform to grid
     ctx.scale(c.s, c.s);
-    ctx.translate(c.x, c.y);
+    ctx.translate(-c.x, -c.y);
     // grid background
     ctx.fillStyle = '#FFF';
     ctx.fillRect(0, 0, g.w, g.h);
@@ -367,25 +414,19 @@ function redo() {
         game.undoStack.push(dir.negate());
     }
 }
-function updateMouse() {
-    if (mouse.buttons.has(0) || mouse.touchActive) {
-        const pos = mouse.gridPos;
-        const head = game.path[game.path.length - 1];
-        if (head !== undefined) move(pos.sub(head));
-    }
-}
-function updateKeyboard() {
-
-}
 function updateMouseMove(e: MouseEvent | Touch) {
     const rect = canvas.getBoundingClientRect();;
     mouse.pos = new Vec2d(e.clientX - rect.left - 4, e.clientY - rect.top - 4);
     const adjustedScale = c.s * (rect.height - 8) / resolution;
     mouse.gridPos = new Vec2d(
-        Math.floor((e.clientX - rect.left - 4 - c.x * adjustedScale) / adjustedScale),
-        Math.floor((e.clientY - rect.top - 4 - c.y * adjustedScale) / adjustedScale)
+        Math.floor((e.clientX - rect.left - 4 + c.x * adjustedScale) / adjustedScale),
+        Math.floor((e.clientY - rect.top - 4 + c.y * adjustedScale) / adjustedScale)
     );
-    updateMouse();
+    if (mouse.buttons.has(0) || mouse.touchActive) {
+        const pos = mouse.gridPos;
+        const head = game.path[game.path.length - 1];
+        if (head !== undefined) move(pos.sub(head));
+    }
 }
 function updateKeypress(e: KeyboardEvent) {
     const key = e.key.toUpperCase();
@@ -416,12 +457,11 @@ const mouse: {
     touchActive: false
 };
 document.addEventListener('keydown', (e) => {
-    keys.add(e.key);
+    keys.add(e.key.toUpperCase());
     updateKeypress(e);
-    updateKeyboard();
 });
 document.addEventListener('keyup', (e) => {
-    keys.delete(e.key);
+    keys.delete(e.key.toUpperCase());
 });
 document.addEventListener('mousedown', (e) => {
     mouse.buttons.add(e.button);
